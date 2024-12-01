@@ -64,8 +64,14 @@ func setDefaults(v reflect.Value) error {
 			continue
 		}
 
+		// Extract custom delimiter if specified
+		delimiter := ","
+		if delimTag := fieldType.Tag.Get("default_delim"); delimTag != "" {
+			delimiter = delimTag
+		}
+
 		// Set the field to the default value
-		if err := setFieldValue(field, defaultValue); err != nil {
+		if err := setFieldValue(field, defaultValue, delimiter); err != nil {
 			return fmt.Errorf("failed to set default value for field '%s': %v", fieldType.Name, err)
 		}
 	}
@@ -87,7 +93,7 @@ func hasOmitempty(tag string) bool {
 	return false
 }
 
-func setFieldValue(field reflect.Value, value string) error {
+func setFieldValue(field reflect.Value, value, delimiter string) error {
 	switch field.Kind() {
 	case reflect.String:
 		field.SetString(value)
@@ -127,13 +133,25 @@ func setFieldValue(field reflect.Value, value string) error {
 		if field.IsNil() {
 			elemType := field.Type().Elem()
 			elem := reflect.New(elemType).Elem()
-			if err := setFieldValue(elem, value); err != nil {
+			if err := setFieldValue(elem, value, delimiter); err != nil {
 				return err
 			}
 			field.Set(elem.Addr())
 		}
 	case reflect.Slice:
-		// Handle slice of basic types. Might implement in future idk let's see depends on my mood
+		elemType := field.Type().Elem()
+		elements := strings.Split(value, delimiter)
+		slice := reflect.MakeSlice(field.Type(), 0, len(elements))
+		for _, elemValueStr := range elements {
+			elemValueStr = strings.TrimSpace(elemValueStr)
+			elemValue := reflect.New(elemType).Elem()
+			err := setFieldValue(elemValue, elemValueStr, delimiter)
+			if err != nil {
+				return fmt.Errorf("failed to set slice element value '%s': %v", elemValueStr, err)
+			}
+			slice = reflect.Append(slice, elemValue)
+		}
+		field.Set(slice)
 	default:
 		return fmt.Errorf("unsupported field type: %s", field.Type().String())
 	}
