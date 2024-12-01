@@ -15,6 +15,10 @@
 go get github.com/varunbheemaiah/godefault
 ```
 
+## Documentation
+
+For detailed documentation, please refer to the [godoc](https://pkg.go.dev/github.com/varunbheemaiah/godefault).
+
 ## Usage
 
 ```go
